@@ -29,12 +29,36 @@ import (
 	"os"
 )
 
-var sentenceDelimiters *regexp.Regexp = regexp.MustCompile("[\\[\\]\n\\.!?,;:\t\\-\\\"\\(\\)\\'\u2019\u2013]")
+var sentenceDelimiters map[string]bool = map[string]bool {
+	"[": true, "]": true, "\n": true, ".": true, "!": true, "?": true, ",": true, ";": true,
+	":": true, "\t": true, "-": true, "\"": true, "(": true, ")": true, "'": true, "\u2019": true,
+	"\u2013": true,
+}
 var wordSep *regexp.Regexp = regexp.MustCompile("\\s+")
 var wordSplitter *regexp.Regexp = regexp.MustCompile("[^a-zA-Z0-9_\\+\\-/]")
 
 func SplitSentences(text string) []string {
-	return sentenceDelimiters.Split(text, -1)
+	indices := []int{0}
+	for i := 0; i < len(text); i++ {
+		s := text[i:i + 1]
+		_, match := sentenceDelimiters[s]
+		if match {
+			indices = append(indices, i)
+		}
+	}
+	indices = append(indices, len(text))
+	result := make([]string, 0, len(indices) + 1)
+	for i, index := range indices {
+		j := i + 1
+		if j < len(indices) {
+			index2 := indices[j]
+			if index2 - index > 1 {
+				result = append(result, text[index + 1:index2])
+			}
+		}
+	}
+	return result
+	//return sentenceDelimiters.Split(text, -1)
 }
 
 func IsAcceptable(phrase string, minCharLength int, maxWordsLength int) bool {
@@ -68,15 +92,33 @@ func IsAcceptable(phrase string, minCharLength int, maxWordsLength int) bool {
 	return true
 }
 
-func GenerateCandidateKeywords(sentenceList []string, stopwordPattern *regexp.Regexp, minCharLength int, maxWordsLength int) []string {
+func findStopwordIndices(words []string, stopwords map[string]bool) []int {
+	result := []int{}
+	for i, word := range words {
+		if stopwords[word] {
+			result = append(result, i)
+		}
+	}
+	return result
+}
+
+func GenerateCandidateKeywords(sentenceList []string, stopwords map[string]bool, minCharLength int, maxWordsLength int) []string {
 	phraseList := []string{}
 	for _, s := range sentenceList {
-		tmp := stopwordPattern.ReplaceAllString(strings.TrimSpace(s), "|")
-		phrases := strings.Split(tmp, "|")
-		for _, phrase := range phrases {
-			phrase = strings.ToLower(strings.TrimSpace(phrase))
-			if phrase != "" && IsAcceptable(phrase, minCharLength, maxWordsLength) {
-				phraseList = append(phraseList, phrase)
+		words := strings.Split(s, " ")
+		stopwordIndices := findStopwordIndices(words, stopwords)
+		for i, index := range stopwordIndices {
+			j := i + 1
+			if j < len(stopwordIndices) {
+				index2 := stopwordIndices[j]
+				if index2 - index == 1 {
+					continue
+				}
+				phraseWords := words[index + 1:index2]
+				phrase := strings.Join(phraseWords, " ")
+				if phrase != "" && IsAcceptable(phrase, minCharLength, maxWordsLength) {
+					phraseList = append(phraseList, phrase)
+				}
 			}
 		}
 	}
@@ -92,13 +134,6 @@ func IsNumber(s string) bool {
 		return err == nil
 	}
 }
-
-//def is_number(s):
-//    try:
-//        float(s) if '.' in s else int(s)
-//        return True
-//    except ValueError:
-//        return False
 
 func SeparateWords(text string, minWordReturnSize int) []string {
 	//    Utility function to return a list of all words that are have a length
@@ -202,15 +237,13 @@ func loadStopWords(stopWordFile string) []string {
 	return stopWords
 }
 
-func BuildStopWordRegex(stopWordFilePath string) *regexp.Regexp {
+func BuildStopWordMap(stopWordFilePath string) map[string]bool {
 	stopWordList := loadStopWords(stopWordFilePath)
-	stopWordRegexList := []string{}
+	stopWordMap := make(map[string]bool, len(stopWordList))
 	for _, word := range stopWordList {
-		wordRegex := "\\b" + word + "\\b"
-		stopWordRegexList = append(stopWordRegexList, wordRegex)
+		stopWordMap[word] = true
 	}
-	stopWordPattern := regexp.MustCompile(strings.Join(stopWordRegexList, "|"))
-	return stopWordPattern
+	return stopWordMap
 }
 
 // ByScore implements sort.Interface for []KeywordScore based on
@@ -223,7 +256,7 @@ func (a ByScore) Less(i, j int) bool { return a[i].Score > a[j].Score }
 
 type Rake struct {
 	stopWordsPath       string
-	stopWordsPattern    *regexp.Regexp
+	stopWords           map[string]bool
 	minCharLength       int
 	maxWordsLength      int
 	minKeywordFrequency int
@@ -237,7 +270,7 @@ type KeywordScore struct {
 func NewRake(stopWordsPath string, minCharLength int, maxWordsLength int, minKeywordFrequency int) *Rake {
 	return &Rake{
 		stopWordsPath: stopWordsPath,
-		stopWordsPattern: BuildStopWordRegex(stopWordsPath),
+		stopWords: BuildStopWordMap(stopWordsPath),
 		minCharLength: minCharLength,
 		maxWordsLength: maxWordsLength,
 		minKeywordFrequency: minKeywordFrequency,
@@ -246,7 +279,7 @@ func NewRake(stopWordsPath string, minCharLength int, maxWordsLength int, minKey
 
 func (rake *Rake) Run(text string) []KeywordScore {
 	sentenceList := SplitSentences(text)
-	phraseList := GenerateCandidateKeywords(sentenceList, rake.stopWordsPattern, rake.minCharLength, rake.maxWordsLength)
+	phraseList := GenerateCandidateKeywords(sentenceList, rake.stopWords, rake.minCharLength, rake.maxWordsLength)
 	wordScores := CalculateWordScores(phraseList)
 	keywordCandidates := GenerateCandidateKeywordScores(phraseList, wordScores, rake.minKeywordFrequency)
 	keywordScores := MapToKeywordScores(keywordCandidates)
