@@ -1,3 +1,4 @@
+package rake
 /*
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -17,7 +18,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package rake
+
 
 import (
 	"regexp"
@@ -184,7 +185,7 @@ func StringCount(stringList []string) map[string]int {
 	return stringCount
 }
 
-func GenerateCandidateKeywordScores(phraseList []string, wordScore map[string]float64, minKeywordFrequency int) map[string]float64 {
+func GenerateCandidateKeywordScores(phraseList []string, wordScore map[string]float64, minKeywordFrequency int) (map[string]float64, map[string]int) {
 	keywordCandidates := map[string]float64{}
 	phraseCounts := StringCount(phraseList)
 	for _, phrase := range phraseList {
@@ -201,16 +202,18 @@ func GenerateCandidateKeywordScores(phraseList []string, wordScore map[string]fl
 		keywordCandidates[phrase] = candiateScore
 	}
 	
-	return keywordCandidates
+	return keywordCandidates, phraseCounts
 }
 
-func MapToKeywordScores(keywordScoreMap map[string]float64) []KeywordScore {
+func MapToKeywordScores(keywordScoreMap map[string]float64, keywordCountMap map[string]int) []KeywordScore {
 	keywordScores := []KeywordScore{}
 	for key, value := range keywordScoreMap {
 		keywordScore := KeywordScore{
 			Keyword: key,
 			Score: value,
 		}
+		count, _ := keywordCountMap[key]
+		keywordScore.Count = count
 		keywordScores = append(keywordScores, keywordScore)
 	}
 	return keywordScores
@@ -265,6 +268,7 @@ type Rake struct {
 type KeywordScore struct {
 	Keyword string
 	Score   float64
+	Count   int
 }
 
 func NewRake(stopWordsPath string, minCharLength int, maxWordsLength int, minKeywordFrequency int) *Rake {
@@ -281,8 +285,8 @@ func (rake *Rake) Run(text string) []KeywordScore {
 	sentenceList := SplitSentences(text)
 	phraseList := GenerateCandidateKeywords(sentenceList, rake.stopWords, rake.minCharLength, rake.maxWordsLength)
 	wordScores := CalculateWordScores(phraseList)
-	keywordCandidates := GenerateCandidateKeywordScores(phraseList, wordScores, rake.minKeywordFrequency)
-	keywordScores := MapToKeywordScores(keywordCandidates)
+	keywordCandidates, keywordCounts := GenerateCandidateKeywordScores(phraseList, wordScores, rake.minKeywordFrequency)
+	keywordScores := MapToKeywordScores(keywordCandidates, keywordCounts)
 	sort.Sort(ByScore(keywordScores))
 	return keywordScores
 }
