@@ -108,18 +108,41 @@ func GenerateCandidateKeywords(sentenceList []string, stopwords map[string]bool,
 	for _, s := range sentenceList {
 		words := strings.Split(s, " ")
 		stopwordIndices := findStopwordIndices(words, stopwords)
-		for i, index := range stopwordIndices {
-			j := i + 1
-			if j < len(stopwordIndices) {
-				index2 := stopwordIndices[j]
-				if index2 - index == 1 {
-					continue
-				}
-				phraseWords := words[index + 1:index2]
+		
+		if len(stopwordIndices) > 0 {
+			if stopwordIndices[0] != 0 {
+				phraseWords := words[0:stopwordIndices[0]]
 				phrase := strings.Join(phraseWords, " ")
 				if phrase != "" && IsAcceptable(phrase, minCharLength, maxWordsLength) {
 					phraseList = append(phraseList, phrase)
 				}
+			}
+			for i, index := range stopwordIndices {
+				j := i + 1
+				if j < len(stopwordIndices) {
+					index2 := stopwordIndices[j]
+					if index2 - index == 1 {
+						continue
+					}
+					phraseWords := words[index + 1:index2]
+					phrase := strings.Join(phraseWords, " ")
+					if phrase != "" && IsAcceptable(phrase, minCharLength, maxWordsLength) {
+						phraseList = append(phraseList, phrase)
+					}
+				}
+			}
+			if stopwordIndices[len(stopwordIndices) - 1] != len(words) - 1 {
+				index := stopwordIndices[len(stopwordIndices) - 1]
+				phraseWords := words[index + 1:]
+				phrase := strings.Join(phraseWords, " ")
+				if phrase != "" && IsAcceptable(phrase, minCharLength, maxWordsLength) {
+					phraseList = append(phraseList, phrase)
+				}
+			}
+		} else {
+			phrase := strings.Join(words, " ")
+			if phrase != "" && IsAcceptable(phrase, minCharLength, maxWordsLength) {
+				phraseList = append(phraseList, phrase)
 			}
 		}
 	}
