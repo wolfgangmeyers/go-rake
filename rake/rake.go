@@ -98,7 +98,7 @@ func findStopwordIndices(words []string, stopwords map[string]bool) []int {
 	result := []int{}
 	if stopwords != nil {
 		for i, word := range words {
-			if stopwords[word] {
+			if stopwords[strings.ToLower(word)] {
 				result = append(result, i)
 			}
 		}
@@ -269,7 +269,7 @@ func loadStopWords(stopWordFile string) []string {
 func BuildStopWordMap(stopWordList []string) map[string]bool {
 	stopWordMap := make(map[string]bool, len(stopWordList))
 	for _, word := range stopWordList {
-		stopWordMap[word] = true
+		stopWordMap[strings.ToLower(word)] = true
 	}
 	return stopWordMap
 }
