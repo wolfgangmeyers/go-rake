@@ -1,4 +1,5 @@
 package rake
+
 /*
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,42 +20,42 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
-	"sort"
-	"io/ioutil"
-	"fmt"
-	"os"
+	"unicode"
 )
 
-var sentenceDelimiters map[string]bool = map[string]bool {
+var sentenceDelimiters map[string]bool = map[string]bool{
 	"[": true, "]": true, "\n": true, ".": true, "!": true, "?": true, ",": true, ";": true,
 	":": true, "\t": true, "-": true, "\"": true, "(": true, ")": true, "'": true, "\u2019": true,
 	"\u2013": true,
 }
 var wordSep *regexp.Regexp = regexp.MustCompile("\\s+")
-var wordSplitter *regexp.Regexp = regexp.MustCompile("[^a-zA-Z0-9_\\+\\-/]")
+var wordSplitter *regexp.Regexp = regexp.MustCompile("[^\\p{L}0-9\\+\\-/]")
 
 func SplitSentences(text string) []string {
 	indices := []int{0}
 	for i := 0; i < len(text); i++ {
-		s := text[i:i + 1]
+		s := text[i : i+1]
 		_, match := sentenceDelimiters[s]
 		if match {
 			indices = append(indices, i)
 		}
 	}
 	indices = append(indices, len(text))
-	result := make([]string, 0, len(indices) + 1)
+	result := make([]string, 0, len(indices)+1)
 	for i, index := range indices {
 		j := i + 1
 		if j < len(indices) {
 			index2 := indices[j]
-			if index2 - index > 1 {
-				result = append(result, text[index + 1:index2])
+			if index2-index > 1 {
+				result = append(result, text[index+1:index2])
 			}
 		}
 	}
@@ -76,9 +77,9 @@ func IsAcceptable(phrase string, minCharLength int, maxWordsLength int) bool {
 	digits := 0
 	alpha := 0
 	for _, c := range phrase {
-		if c > '0' && c < '9' {
+		if unicode.IsDigit(c) {
 			digits++
-		} else if (c > 'a' && c < 'z') || (c > 'A' && c < 'Z') {
+		} else if unicode.IsLetter(c) {
 			alpha++
 		}
 	}
@@ -108,7 +109,7 @@ func GenerateCandidateKeywords(sentenceList []string, stopwords map[string]bool,
 	for _, s := range sentenceList {
 		words := strings.Split(s, " ")
 		stopwordIndices := findStopwordIndices(words, stopwords)
-		
+
 		if len(stopwordIndices) > 0 {
 			if stopwordIndices[0] != 0 {
 				phraseWords := words[0:stopwordIndices[0]]
@@ -121,19 +122,19 @@ func GenerateCandidateKeywords(sentenceList []string, stopwords map[string]bool,
 				j := i + 1
 				if j < len(stopwordIndices) {
 					index2 := stopwordIndices[j]
-					if index2 - index == 1 {
+					if index2-index == 1 {
 						continue
 					}
-					phraseWords := words[index + 1:index2]
+					phraseWords := words[index+1 : index2]
 					phrase := strings.Join(phraseWords, " ")
 					if phrase != "" && IsAcceptable(phrase, minCharLength, maxWordsLength) {
 						phraseList = append(phraseList, phrase)
 					}
 				}
 			}
-			if stopwordIndices[len(stopwordIndices) - 1] != len(words) - 1 {
-				index := stopwordIndices[len(stopwordIndices) - 1]
-				phraseWords := words[index + 1:]
+			if stopwordIndices[len(stopwordIndices)-1] != len(words)-1 {
+				index := stopwordIndices[len(stopwordIndices)-1]
+				phraseWords := words[index+1:]
 				phrase := strings.Join(phraseWords, " ")
 				if phrase != "" && IsAcceptable(phrase, minCharLength, maxWordsLength) {
 					phraseList = append(phraseList, phrase)
@@ -224,7 +225,7 @@ func GenerateCandidateKeywordScores(phraseList []string, wordScore map[string]fl
 		}
 		keywordCandidates[phrase] = candiateScore
 	}
-	
+
 	return keywordCandidates, phraseCounts
 }
 
@@ -233,7 +234,7 @@ func MapToKeywordScores(keywordScoreMap map[string]float64, keywordCountMap map[
 	for key, value := range keywordScoreMap {
 		keywordScore := KeywordScore{
 			Keyword: key,
-			Score: value,
+			Score:   value,
 		}
 		count, _ := keywordCountMap[key]
 		keywordScore.Count = count
@@ -250,14 +251,14 @@ func loadStopWords(stopWordFile string) []string {
 		os.Exit(1)
 	}
 	lines := strings.Split(string(contents), "\n")
-	for _, line := range(lines) {
+	for _, line := range lines {
 		line = strings.ToLower(strings.TrimSpace(line))
 		if strings.Index(line, "#") != 0 {
 			// in case more than one per line
 			for _, word := range strings.Split(line, " ") {
 				stopWords = append(stopWords, word)
 			}
-			
+
 		}
 	}
 	return stopWords
@@ -296,10 +297,10 @@ type KeywordScore struct {
 
 func NewRake(stopWordsPath string, minCharLength int, maxWordsLength int, minKeywordFrequency int) *Rake {
 	return &Rake{
-		stopWordsPath: stopWordsPath,
-		stopWords: BuildStopWordMap(stopWordsPath),
-		minCharLength: minCharLength,
-		maxWordsLength: maxWordsLength,
+		stopWordsPath:       stopWordsPath,
+		stopWords:           BuildStopWordMap(stopWordsPath),
+		minCharLength:       minCharLength,
+		maxWordsLength:      maxWordsLength,
 		minKeywordFrequency: minKeywordFrequency,
 	}
 }
