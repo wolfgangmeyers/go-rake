@@ -96,9 +96,11 @@ func IsAcceptable(phrase string, minCharLength int, maxWordsLength int) bool {
 
 func findStopwordIndices(words []string, stopwords map[string]bool) []int {
 	result := []int{}
-	for i, word := range words {
-		if stopwords[word] {
-			result = append(result, i)
+	if stopwords != nil {
+		for i, word := range words {
+			if stopwords[word] {
+				result = append(result, i)
+			}
 		}
 	}
 	return result
@@ -264,8 +266,7 @@ func loadStopWords(stopWordFile string) []string {
 	return stopWords
 }
 
-func BuildStopWordMap(stopWordFilePath string) map[string]bool {
-	stopWordList := loadStopWords(stopWordFilePath)
+func BuildStopWordMap(stopWordList []string) map[string]bool {
 	stopWordMap := make(map[string]bool, len(stopWordList))
 	for _, word := range stopWordList {
 		stopWordMap[word] = true
@@ -296,13 +297,21 @@ type KeywordScore struct {
 }
 
 func NewRake(stopWordsPath string, minCharLength int, maxWordsLength int, minKeywordFrequency int) *Rake {
-	return &Rake{
-		stopWordsPath:       stopWordsPath,
-		stopWords:           BuildStopWordMap(stopWordsPath),
+	rake := &Rake{
 		minCharLength:       minCharLength,
 		maxWordsLength:      maxWordsLength,
 		minKeywordFrequency: minKeywordFrequency,
 	}
+
+	if stopWordsPath != "" {
+		rake.stopWords = BuildStopWordMap(loadStopWords(stopWordsPath))
+	}
+
+	return rake
+}
+
+func (rake *Rake) SetStopWords(stopWordsList []string) {
+	rake.stopWords = BuildStopWordMap(stopWordsList)
 }
 
 func (rake *Rake) Run(text string) []KeywordScore {
