@@ -31,36 +31,12 @@ import (
 	"unicode"
 )
 
-var sentenceDelimiters map[string]bool = map[string]bool{
-	"[": true, "]": true, "\n": true, ".": true, "!": true, "?": true, ",": true, ";": true,
-	":": true, "\t": true, "-": true, "\"": true, "(": true, ")": true, "'": true, "\u2019": true,
-	"\u2013": true,
-}
 var wordSep *regexp.Regexp = regexp.MustCompile("\\s+")
 var wordSplitter *regexp.Regexp = regexp.MustCompile("[^\\p{L}0-9\\+\\-/]")
 
-func SplitSentences(text string) []string {
-	indices := []int{0}
-	for i := 0; i < len(text); i++ {
-		s := text[i : i+1]
-		_, match := sentenceDelimiters[s]
-		if match {
-			indices = append(indices, i)
-		}
-	}
-	indices = append(indices, len(text))
-	result := make([]string, 0, len(indices)+1)
-	for i, index := range indices {
-		j := i + 1
-		if j < len(indices) {
-			index2 := indices[j]
-			if index2-index > 1 {
-				result = append(result, text[index+1:index2])
-			}
-		}
-	}
-	return result
-	//return sentenceDelimiters.Split(text, -1)
+func sentenceSplitter(r rune) bool {
+	// Ignore hyphens, usually they are used to join words (e.g., "ice-cream-flavored candy")
+	return unicode.IsPunct(r) && !unicode.Is(unicode.Properties["Hyphen"], r)
 }
 
 func IsAcceptable(phrase string, minCharLength int, maxWordsLength int) bool {
@@ -315,7 +291,7 @@ func (rake *Rake) SetStopWords(stopWordsList []string) {
 }
 
 func (rake *Rake) Run(text string) []KeywordScore {
-	sentenceList := SplitSentences(text)
+	sentenceList := strings.FieldsFunc(text, sentenceSplitter)
 	phraseList := GenerateCandidateKeywords(sentenceList, rake.stopWords, rake.minCharLength, rake.maxWordsLength)
 	wordScores := CalculateWordScores(phraseList)
 	keywordCandidates, keywordCounts := GenerateCandidateKeywordScores(phraseList, wordScores, rake.minKeywordFrequency)
