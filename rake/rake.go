@@ -109,7 +109,7 @@ func findStopwordIndices(words []string, stopwords map[string]bool) []int {
 func GenerateCandidateKeywords(sentenceList []string, stopwords map[string]bool, minCharLength int, maxWordsLength int) []string {
 	phraseList := []string{}
 	for _, s := range sentenceList {
-		words := strings.Split(s, " ")
+		words := strings.Fields(s)
 		stopwordIndices := findStopwordIndices(words, stopwords)
 
 		if len(stopwordIndices) > 0 {
@@ -257,7 +257,7 @@ func loadStopWords(stopWordFile string) []string {
 		line = strings.ToLower(strings.TrimSpace(line))
 		if strings.Index(line, "#") != 0 {
 			// in case more than one per line
-			for _, word := range strings.Split(line, " ") {
+			for _, word := range strings.Fields(line) {
 				stopWords = append(stopWords, word)
 			}
 
