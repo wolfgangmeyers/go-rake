@@ -32,7 +32,7 @@ import (
 )
 
 var wordSep *regexp.Regexp = regexp.MustCompile("\\s+")
-var wordSplitter *regexp.Regexp = regexp.MustCompile("[^\\p{L}0-9\\+\\-/]")
+var wordSplitter *regexp.Regexp = regexp.MustCompile("[^\\p{L}\\p{N}\\+\\-/]")
 
 func sentenceSplitter(r rune) bool {
 	// Ignore hyphens, usually they are used to join words (e.g., "ice-cream-flavored candy")
